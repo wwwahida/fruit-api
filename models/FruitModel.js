@@ -41,7 +41,7 @@ class Fruit {
         }
     }
 
-    update(dat{
+    update(data){
         const updateFruit = fruit.find((fruit) => fruit.name.toLowerCase() == this.name.toLowerCase())
 
         if (updateFruit) {
