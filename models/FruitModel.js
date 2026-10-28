@@ -1,71 +1,60 @@
-const fruits = require('../fruits.json')
+const db = require('../database/db')
 
 // oop
 class Fruit {
     constructor(fruit) {
-        this.genus = fruit.genus
-        this.name = fruit.name
         this.id = fruit.id
+        this.name = fruit.fruit_name
+        this.genus = fruit.genus
         this.family = fruit.family
-        this.order = fruit.order
+        this.order = fruit.fruit_order
         this.nutritions = fruit.nutritions
     }
 
-    static showAll() {
-        return fruits.map(q => new Fruit(q))
+    static async showAll() {
+        const response = await db.query('SELECT * FROM fruits ORDER BY fruit_name;')
+        return response.rows.map(fruit => new Fruit(fruit))
     }
 
-    static show(name) {
-        const fruit = fruits.find((fruit) => fruit.name.toLowerCase() == name)
-        if (fruit) {
-            return new Fruit(fruit)
-        } else {
+    static async show(name) {
+        const response = await db.query('SELECT * FROM fruits WHERE LOWER(fruit_name) = $1;', [name])
+        if (response.rows.length != 1) {
             throw new Error('fruit not found')
+        } else {
+            return new Fruit(response.rows[0])
         }
     }
 
-    static create(data) {
+    static async create(data) {
         const newFruit = data
         if (!data.name) {
             throw 'name is required'
         }
 
-        const fruit = fruits.find((fruit) => fruit.name.toLowerCase() == data.name.toLowerCase())
+        const existing = await db.query('SELECT * FROM fruits WHERE LOWER(fruit_name) = $1;', [data.name.toLowerCase()])
 
-        if (fruit) {
+        if (existing.rows.length > 0) {
             throw 'the fruit already exists'
-        } else {
-            newFruit[`id`] = Math.max(...fruits.map(fruit => fruit.id)) + 1
-            fruits.push(newFruit)
-            return new Fruit(newFruit)
         }
+
+        const response = await db.query('INSERT INTO fruits (fruit_name, genus, family, fruit_order, nutritions) VALUES ($1, $2, $3, $4, $5) RETURNING *;', [data.name, data.genus, data.family, data.order, data.nutritions])
+
+        return new Fruit(response.rows[0])
     }
 
-    update(data){
-        const updateFruit = fruit.find((fruit) => fruit.name.toLowerCase() == this.name.toLowerCase())
+    async update(data) {
+        const name = data.name || this.name
+        const family = data.family || this.family
 
-        if (updateFruit) {
-            if (data.genus) updateFruit.genus = data.genus
-            if (data.name) updateFruit.name = data.name
-            if (data.family) updateFruit.family = data.family
-            if (data.order) updateFruit.order = data.order
-            if (data.nutritions) updateFruit.nutritions = data.nutritions
+        const response = await db.query('UPDATE fruits SET fruit_name = $1, family = $2 WHERE id = $3 RETURNING *;',
+            [name, family, this.id]
+        )
 
-            return new Fruit(updateFruit)
-        } else {
-            throw new Error('fruit not found')
-        }
+        return new Fruit(response.rows[0])
     }
 
-    destroy() {
-        const deletedFruit = fruits.find((fruit) => fruit.name.toLowerCase() == this.name.toLowerCase())
-
-        if (deletedFruit) {
-            const index = fruits.indexOf(deletedFruit)
-            fruits.splice(index, 1)
-        } else {
-            throw new Error('fruit not found')
-        }
+    async destroy() {
+        await db.query('DELETE FROM fruits WHERE id = $1;', [this.id])
     }
 }
 
